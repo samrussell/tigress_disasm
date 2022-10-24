@@ -31,7 +31,16 @@ class Tigress1(Architecture):
             result = InstructionInfo()
             result.length = 9
             return result
-            
+        elif opcode == 0x4e:
+            # nop
+            result = InstructionInfo()
+            result.length = 1
+            return result
+        elif opcode == 0xc7:
+            # mulq
+            result = InstructionInfo()
+            result.length = 1
+            return result
         else:
             return None
     
@@ -47,6 +56,16 @@ class Tigress1(Architecture):
             tokens.append(InstructionTextToken(InstructionTextTokenType.OperandSeparatorToken, " "))
             tokens.append(InstructionTextToken(InstructionTextTokenType.PossibleAddressToken, hex(immediate), immediate))
             return tokens, 9
+        elif opcode == 0x4e:
+            # nop
+            tokens = []
+            tokens.append(InstructionTextToken(InstructionTextTokenType.InstructionToken, "nop"))
+            return tokens, 1
+        elif opcode == 0xc7:
+            # mulq
+            tokens = []
+            tokens.append(InstructionTextToken(InstructionTextTokenType.InstructionToken, "mulq"))
+            return tokens, 1
         else:
             return None
     
@@ -56,9 +75,17 @@ class Tigress1(Architecture):
         if opcode == 0x60:
             # loadq
             immediate = struct.unpack("<Q", data[1:9])[0]
-
             il.append(il.push(8, il.const(8, immediate)))
             return 9
+        elif opcode == 0x4e:
+            # nop
+            il.append(il.nop())
+            return 1
+        elif opcode == 0xc7:
+            # mulq
+            product = il.mult(8, il.pop(8), il.pop(8))
+            il.append(il.push(8, product))
+            return 1
         else:
             return None
 

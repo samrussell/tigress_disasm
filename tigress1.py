@@ -41,6 +41,16 @@ class Tigress1(Architecture):
             result = InstructionInfo()
             result.length = 1
             return result
+        elif opcode == 0x8e:
+            # ldarg
+            result = InstructionInfo()
+            result.length = 5
+            return result
+        elif opcode == 0x61:
+            # rmem
+            result = InstructionInfo()
+            result.length = 1
+            return result
         else:
             return None
     
@@ -66,6 +76,20 @@ class Tigress1(Architecture):
             tokens = []
             tokens.append(InstructionTextToken(InstructionTextTokenType.InstructionToken, "mulq"))
             return tokens, 1
+        elif opcode == 0x8e:
+            # ldspcl
+            immediate = struct.unpack("<L", data[1:5])[0]
+
+            tokens = []
+            tokens.append(InstructionTextToken(InstructionTextTokenType.InstructionToken, "ldarg"))
+            tokens.append(InstructionTextToken(InstructionTextTokenType.OperandSeparatorToken, " "))
+            tokens.append(InstructionTextToken(InstructionTextTokenType.PossibleAddressToken, hex(immediate), immediate))
+            return tokens, 5
+        elif opcode == 0x61:
+            # rmem
+            tokens = []
+            tokens.append(InstructionTextToken(InstructionTextTokenType.InstructionToken, "rmem"))
+            return tokens, 1
         else:
             return None
     
@@ -85,6 +109,15 @@ class Tigress1(Architecture):
             # mulq
             product = il.mult(8, il.pop(8), il.pop(8))
             il.append(il.push(8, product))
+            return 1
+        elif opcode == 0x8e:
+            # ldarg
+            immediate = struct.unpack("<L", data[1:5])[0]
+            il.append(il.push(8, il.const(8, immediate)))
+            return 5
+        elif opcode == 0x61:
+            # rmem
+            il.append(il.push(8, il.load(8, il.pop(8))))
             return 1
         else:
             return None

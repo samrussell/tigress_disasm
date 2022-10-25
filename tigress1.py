@@ -22,8 +22,11 @@ class Tigress1(Architecture):
 
     regs = {
         "vsp": RegisterInfo("vsp", 8),
-        "varg": RegisterInfo("varg", 8),
+        "varg1": RegisterInfo("varg1", 8),
+        "varg2": RegisterInfo("varg2", 8),
         "vreg": RegisterInfo("vreg", 8),
+        "vlhs": RegisterInfo("vlhs", 8),
+        "vrhs": RegisterInfo("vrhs", 8),
     }
     stack_pointer = "vsp"
 
@@ -97,10 +100,16 @@ class Tigress1(Architecture):
             return result
         elif opcode == 0xf4:
             # jmp
-            immediate = struct.unpack("<Q", data[1:9])[0]
+            immediate = struct.unpack("<L", data[1:5])[0]
             result = InstructionInfo()
-            result.length = 9
-            result.add_branch(BranchType.UnconditionalBranch, immediate+1)
+            result.length = 5
+            result.add_branch(BranchType.UnconditionalBranch, address+immediate+1)
+            return result
+        elif opcode == 0x4d:
+            # ret
+            result = InstructionInfo()
+            result.length = 1
+            result.add_branch(BranchType.FunctionReturn, 0)
             return result
         else:
             return None
@@ -186,14 +195,19 @@ class Tigress1(Architecture):
             tokens.append(InstructionTextToken(InstructionTextTokenType.InstructionToken, "shrq"))
             return tokens, 1
         elif opcode == 0xf4:
-            # shrq
-            immediate = struct.unpack("<Q", data[1:9])[0]
+            # jmp
+            immediate = struct.unpack("<L", data[1:5])[0]
 
             tokens = []
             tokens.append(InstructionTextToken(InstructionTextTokenType.InstructionToken, "jmp"))
             tokens.append(InstructionTextToken(InstructionTextTokenType.OperandSeparatorToken, " "))
             tokens.append(InstructionTextToken(InstructionTextTokenType.PossibleAddressToken, hex(immediate), immediate))
-            return tokens, 9
+            return tokens, 5
+        elif opcode == 0x4d:
+            # ret
+            tokens = []
+            tokens.append(InstructionTextToken(InstructionTextTokenType.InstructionToken, "ret"))
+            return tokens, 1
         else:
             return None
     
@@ -218,7 +232,10 @@ class Tigress1(Architecture):
             # ldarg
             immediate = struct.unpack("<L", data[1:5])[0]
             # needs more work
-            varg = il.add(8, il.reg(8, "varg"), il.const(4, immediate))
+            if immediate == 0:
+                varg = il.add(8, il.reg(8, "varg1"), il.const(4, immediate))
+            elif immediate == 1:
+                varg = il.add(8, il.reg(8, "varg2"), il.const(4, immediate))
             il.append(il.push(8, varg))
             return 5
         elif opcode == 0x61 or opcode == 0x6e:
@@ -238,9 +255,9 @@ class Tigress1(Architecture):
             return 5
         elif opcode == 0xdf:
             # wmem
-            dest = il.pop(8)
-            value = il.pop(8)
-            il.append(il.store(8, dest, value))
+            il.append(il.set_reg(8, "vlhs", il.pop(8)))
+            il.append(il.set_reg(8, "vrhs", il.pop(8)))
+            il.append(il.store(8, il.reg(8, "vlhs"), il.reg(8, "vrhs")))
             return 1
         elif opcode == 0x56:
             # orq
@@ -254,30 +271,35 @@ class Tigress1(Architecture):
             return 1
         elif opcode == 0x42:
             # subq
-            first = il.pop(8)
-            second = il.pop(8)
-            sum = il.sub(8, first, second)
+            il.append(il.set_reg(8, "vlhs", il.pop(8)))
+            il.append(il.set_reg(8, "vrhs", il.pop(8)))
+            sum = il.sub(8, il.reg(8, "vlhs"), il.reg(8, "vrhs"))
             il.append(il.push(8, sum))
             return 1
         elif opcode == 0x5d:
             # shlq
-            first = il.pop(8)
-            second = il.pop(8)
-            sum = il.shift_left(8, first, second)
+            il.append(il.set_reg(8, "vlhs", il.pop(8)))
+            il.append(il.set_reg(8, "vrhs", il.pop(8)))
+            sum = il.shift_left(8, il.reg(8, "vlhs"), il.reg(8, "vrhs"))
             il.append(il.push(8, sum))
             return 1
         elif opcode == 0x2b:
             # shrq
-            second = il.pop(8)
-            first = il.pop(8)
-            sum = il.logical_shift_right(8, first, second)
+            il.append(il.set_reg(8, "vrhs", il.pop(8)))
+            il.append(il.set_reg(8, "vlhs", il.pop(8)))
+            sum = il.logical_shift_right(8, il.reg(8, "vlhs"), il.reg(8, "vrhs"))
             il.append(il.push(8, sum))
             return 1
         elif opcode == 0xf4:
             # jmp
-            immediate = struct.unpack("<Q", data[1:9])[0]
-            il.append(il.jump(il.const(8, immediate+1)))
-            return 9
+            immediate = struct.unpack("<L", data[1:5])[0]
+            dest = immediate + address + 1
+            il.append(il.jump(il.const(8, dest)))
+            return 5
+        elif opcode == 0x4d:
+            # ret
+            il.append(il.ret(0))
+            return 1
         else:
             return None
 

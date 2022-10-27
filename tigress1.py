@@ -233,9 +233,9 @@ class Tigress1(Architecture):
             immediate = struct.unpack("<L", data[1:5])[0]
             # needs more work
             if immediate == 0:
-                varg = il.add(8, il.reg(8, "varg1"), il.const(4, immediate))
+                varg = il.reg(8, "varg1")
             elif immediate == 1:
-                varg = il.add(8, il.reg(8, "varg2"), il.const(4, immediate))
+                varg = il.reg(8, "varg2")
             il.append(il.push(8, varg))
             return 5
         elif opcode == 0x61 or opcode == 0x6e:

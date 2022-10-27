@@ -303,7 +303,4 @@ class Tigress1(Architecture):
         else:
             return None
 
-class TigressCallingConvention(CallingConvention):
-    int_arg_regs = ["varg"]
-
 Tigress1.register()
